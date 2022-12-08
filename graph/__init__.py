@@ -1,13 +1,13 @@
 # be năm ❤xodă❤
 # Created by Ali Heydari
 class Vertex:
-	label: int  # Vertex's index in G.V
+	id: int  # Vertex's index in G.V
 	colour: int
 	P: list[list[float]]  # self.P[c] is probability distribution function of self,  given that self's parent's colour is c
 	# self.P[c][x] = P(self.colour == x | parent.colour == c)
 
 	def __init__(self, label: int, colour: int = None):
-		self.label = label
+		self.id = label
 		self.colour = colour
 
 

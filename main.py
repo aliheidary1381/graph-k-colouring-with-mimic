@@ -8,7 +8,7 @@ def rootP(population: list[Graph], root: Vertex):
 	colours = []  # 0 1 2 ....
 	probability = []
 	for instance in population:
-		colours.append(instance.V[root.label].colour)
+		colours.append(instance.V[root.id].colour)
 	for colour in range(0, k + 1):
 		probability.append(colours.count(colour) / (len(colours)))
 
