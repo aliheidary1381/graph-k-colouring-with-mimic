@@ -1,7 +1,7 @@
 # be năm ❤xodă❤
 # Created by Ali Heydari
 class Vertex:
-	label: int
+	label: int  # Vertex's index in G.V
 	colour: int
 	P: list[list[float]]  # self.P[c] is probability distribution function of self,  given that self's parent's colour is c
 	# self.P[c][x] = P(self.colour == x | parent.colour == c)
@@ -26,6 +26,12 @@ class Edge:
 		elif v == u2:
 			return u1
 
+	def same_colour(self) -> bool:
+		v: Vertex
+		u: Vertex
+		v, u = self.ends
+		return v.colour == u.colour
+
 
 class Graph:
 	V: list[Vertex] = []
@@ -45,6 +51,9 @@ class Graph:
 		v, u = e.ends
 		self.N[v].append(e)
 		self.N[u].append(e)
+
+	def count_neighbors_with_same_colour(self):
+		sum(e.same_colour() for e in self.E)
 
 
 class RootedTree:
