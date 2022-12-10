@@ -1,22 +1,19 @@
-# be năm ❤xodă❤
-# Created by Ali Heydari
+from coloured_graph import *
+from graphical_mutual_information import *
+from dependency_tree import *
+
+
 class Vertex:
 	id: int  # Vertex's index in G.V
-	colour: int
-	P: list[list[float]]  # self.P[c] is probability distribution function of self,  given that self's parent's colour is c
-	# self.P[c][x] = P(self.colour == x | parent.colour == c)
 
-	def __init__(self, label: int, colour: int = None):
+	def __init__(self, label: int):
 		self.id = label
-		self.colour = colour
 
 
 class Edge:
-	weight: float  # Mutual Information
 	ends: set[Vertex, Vertex]
 
-	def __init__(self, v: Vertex, u: Vertex, w: float = 1):
-		self.weight = w
+	def __init__(self, v: Vertex, u: Vertex):
 		self.ends = {v, u}
 
 	def opposite_end(self, v: Vertex) -> Vertex:
@@ -25,12 +22,6 @@ class Edge:
 			return u2
 		elif v == u2:
 			return u1
-
-	def same_colour(self) -> bool:
-		v: Vertex
-		u: Vertex
-		v, u = self.ends
-		return v.colour == u.colour
 
 
 class Graph:
@@ -51,42 +42,3 @@ class Graph:
 		v, u = e.ends
 		self.N[v].append(e)
 		self.N[u].append(e)
-
-	def count_neighbors_with_same_colour(self):
-		sum(e.same_colour() for e in self.E)
-
-
-class RootedTree:
-	root: Vertex
-	V: list[Vertex] = []
-	E: list[Edge] = []
-	parent: dict[Vertex, Edge] = {}
-	children: dict[Vertex, list[Edge]] = {}
-
-	def __init__(self, root: Vertex):
-		self.root = root
-		self.V.append(root)
-
-	def add_child(self, parent: Vertex, child: Vertex, weight: float):
-		self.V.append(child)
-		e = Edge(child, parent, weight)
-		self.E.append(e)
-		self.parent[child] = e
-		self.children[parent].append(e)
-
-	def construct_from(self, G: Graph):
-		seen = {v: False for v in G.V}
-		self.dfs(G, seen, self.root)
-
-	def dfs(self, G: Graph, seen: dict[Vertex: bool], v: Vertex):
-		for e in G.N[v]:
-			u = e.opposite_end(v)
-			if not seen[u]:
-				seen[u] = True
-				self.add_child(v, u, e.weight)
-				self.dfs(G, seen, u)
-
-
-def MST(G: Graph) -> RootedTree:
-	pass
-
