@@ -62,4 +62,4 @@ class ColouredGraph:
 		self.N[u].append(e)
 
 	def fitness(self):
-		sum(not e.cost for e in self.E)
+		return sum(not e.cost for e in self.E)
