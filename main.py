@@ -1,50 +1,107 @@
+import math
+
 from graph import *
-import numpy as np
-import pandas as pd
-
-k = 3
 
 
-def rootP(population: list[Graph], root: Vertex):
-	colours = []  # 0 1 2 ....
-	probability = []
-	for instance in population:
-		colours.append(instance.V[root.id].colour)
-	for colour in range(0, k + 1):
-		probability.append(colours.count(colour) / (len(colours)))
+class MIMIC:
+	k: int  # constant
+	body: Graph  # constant
+	gmi: MIGraph
+	model: DTree
+	current_generation: list[ColouredGraph]
 
-	return probability
+	def __init__(self, k: int, G: Graph):
+		self.iteration = 0
+		self.k = k
+		self.body = G
+		self.gmi = MIGraph(len(G.V))
+		for v in G.V:
+			c = len(G.N[v])
+			v = self.gmi.V[v.id]
+			for e in self.gmi.N[v]:
+				u = e.opposite_end(v)
+				e.weight = c + len(G.N[G.V[u.id]])
+		self.model = self.gmi.MST(k)
+		self.current_generation = self.produce_new_generation(1)
+
+	def run(self):
+		reproduction_rate = 1
+		death_rate = 0.5
+		while self.current_generation[0].fitness() != len(self.body.E):
+			self.iteration += 1
+			self.pick_best(death_rate)
+			self.update_model()
+			self.estimate_distribution()
+			self.current_generation += self.produce_new_generation(reproduction_rate)
+
+	def calculate_eP(self, v: DVertex):
+		v.eP = [0 for _ in range(self.k)]
+		for G in self.current_generation:
+			v.eP[G.V[v.id].colour] += 1
+		den = len(self.current_generation)
+		v.eP = [cnt / den for cnt in v.eP]
+
+	def calculate_P(self, parent: DVertex, child: DVertex):
+		child.P = [[0 for _ in range(self.k)] for _ in range(self.k)]
+		for G in self.current_generation:
+			child.P[G.V[parent.id].colour][G.V[child.id].colour] += 1
+		count_sum = [sum(child.P[colour]) for colour in range(self.k)]
+		child.P = [[child.P[i][j] / count_sum[i] for j in range(self.k)] for i in range(self.k)]
+
+	def estimate_distribution(self):
+		for v in self.model.V:
+			if v == self.model.root:
+				self.calculate_eP(v)
+			else:
+				self.calculate_P(self.model.parent[v].opposite_end(v), v)
+
+	def generate_candidate_solution(self) -> ColouredGraph:
+		return self.model.sample(self.body)
+
+	def produce_new_generation(self, sampling_ratio) -> list[ColouredGraph]:
+		if self.iteration == 0:
+			new_population = len(self.body.V)
+		else:
+			old_generation = self.current_generation
+			new_population = len(old_generation)
+		new_generation = []
+
+		for i in range(new_population * sampling_ratio):
+			new_generation.append(self.generate_candidate_solution())
+		return new_generation
+
+	def evaluate_fitness(self):
+		self.current_generation.sort(key=lambda G: G.fitness(), reverse=True)
+
+	def pick_best(self, ratio: float):
+		self.current_generation = self.current_generation[:round(len(self.current_generation) * ratio)]
+
+	def calculate_mutual_information(self, e: MIEdge):
+		v, u = e.ends
+		vid, uid = v.id, u.id
+		Pvu = [[0 for _ in range(self.k)] for _ in range(self.k)]
+		Pv = [0 for _ in range(self.k)]
+		Pu = [0 for _ in range(self.k)]
+		for G in self.current_generation:
+			Pvu[G.V[vid].colour][G.V[uid].colour] += 1
+			Pv[G.V[vid].colour] += 1
+			Pu[G.V[uid].colour] += 1
+		den = len(self.current_generation)
+		for cv in range(self.k):
+			for cu in range(self.k):
+				pass
+				e.weight += Pvu[cv][cu]/den*math.log(Pvu[cv][cu]*den/(Pv[cv]*Pu[cu]))
+
+	def fill_gmi(self):
+		for e in self.gmi.E:
+			self.calculate_mutual_information(e)
+
+	def update_model(self):
+		self.fill_gmi()
+		self.model = self.gmi.MST(self.k)
 
 
-def ConditionalProbability(population: list[Graph], children: Vertex, parent: Vertex):
-	colours = pd.DataFrame(np.zeros((k, k)))
-	for instance in population:
-		colours[instance.V[parent.id].colour][instance.V[children.id].colour] += 1
-	Probability = colours.apply(lambda row: row / row.sum(), axis=0)
-	return probability
-
-
-def betterHalf(population: list[Graph], costs: list[int]):
-	dictionary = dict(zip(population, costs))
-	sortedG = sorted(dictionary.items(), key=lambda x: x[1])
-	halfG = dict(sortedG[:int(len(population) / 2)])
-	return halfG.keys()
-
-
-def mutual_information(population: list[Graph], x: Vertex, y: Vertex):
-	colours = pd.DataFrame(np.zeros((k, k)))
-	for instance in population:
-		colours[instance.V[y.id].colour][instance.V[x.id].colour] += 1
-	JointP = colours.apply(lambda x: x / len(population))
-	Yprobability = JointP.sum(axis=0)
-	temp = JointP / (Yprobability)  # Yprobability
-	temp = temp.apply(lambda row: row / row.sum(), axis=1)  # Xprobability
-	temp = np.log(temp)
-	MI = (temp * JointP).values.sum()
-	return MI
-
-
-G = Graph()
-G.add_vertex()
-G.add_vertex()
-G.add_edge(Edge(G.V[0], G.V[1]))
+H = Graph(2)
+H.add_edge(Edge(H.V[0], H.V[1]))
+AI = MIMIC(2, H)
+AI.run()

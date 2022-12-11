@@ -1,6 +1,7 @@
 # be năm ❤xodă❤
 # Created by Ali Heydari
-from graph import Vertex, Edge, Graph, ColouredVertex, EdgeForColoured, ColouredGraph
+from graph.simple_graph import Vertex, Graph
+from graph.coloured_graph import ColouredGraph
 import random
 
 
@@ -8,6 +9,11 @@ class DVertex(Vertex):
 	P: list[list[float]]  # self.P[c] is probability distribution function of self,  given that self's parent's colour is c
 	# self.P[c][x] = P(self.colour == x | parent.colour == c)
 	eP: list[float]  # ep[c] = empirical probability that self's colour is c
+
+	def __init__(self, k: int, label: int):
+		super().__init__(label)
+		self.eP: list[float] = [1/k for _ in range(k)]
+		self.P: list[list[float]] = [[1/k for _ in range(k)] for _ in range(k)]
 
 
 class DEdge:
@@ -26,10 +32,10 @@ class DEdge:
 
 class DTree:  # dependency graph + tree structure
 	root: DVertex
-	V: list[DVertex] = []
-	E: list[DEdge] = []
-	parent: dict[DVertex, DEdge | None] = {}
-	children: dict[DVertex, list[DEdge]] = {}
+	V: list[DVertex]
+	E: list[DEdge]
+	parent: dict[DVertex, DEdge | None]
+	children: dict[DVertex, list[DEdge]]
 
 	def add_edge(self, parent: DVertex, child: DVertex):
 		e = DEdge(child, parent)
@@ -38,22 +44,23 @@ class DTree:  # dependency graph + tree structure
 		self.children[parent].append(e)
 		self.children[child] = []
 
-	def __init__(self, G: Graph = None):
-		self.root = DVertex(0)  # TODO
-		self.V.append(self.root)
-		self.children[self.root] = []
-		self.parent[self.root] = None
+	def __init__(self, k: int, G: Graph = None):
+		self.root = DVertex(k, 0)  # TODO
+		self.V: list[DVertex] = [self.root]
+		self.E: list[DEdge] = []
+		self.parent: dict[DVertex, DEdge | None] = {self.root: None}
+		self.children: dict[DVertex, list[DEdge]] = {self.root: []}
 		if G is None:
 			return
 		for i in range(1, len(G.V)):
-			self.V.append(DVertex(i))
+			self.V.append(DVertex(k, i))
 		seen = {v: False for v in self.V}
 		self.init_dfs(G, seen, self.root)
 
 	def init_dfs(self, G: Graph, seen: dict[DVertex: bool], v: DVertex):
 		seen[v] = True
 		for e in G.N[G.V[v.id]]:
-			u = e.opposite_end(v)  # in G
+			u = e.opposite_end(G.V[v.id])  # in G
 			u = self.V[u.id]  # in self
 			if not seen[u]:
 				self.add_edge(v, u)

@@ -1,6 +1,6 @@
 # be năm ❤xodă❤
 # Created by Ali Heydari
-from graph import Vertex, Edge, Graph
+from graph.simple_graph import Vertex, Edge, Graph
 
 
 class ColouredVertex(Vertex):
@@ -25,20 +25,23 @@ class EdgeForColoured(Edge):
 			return u1
 
 	@property
-	def weight(self) -> bool:
+	def cost(self) -> bool:
 		v: ColouredVertex
 		u: ColouredVertex
 		v, u = self.ends
 		return v.colour == u.colour
 
 
-class ColouredGraph(Graph):
-	V: list[ColouredVertex] = []
-	E: list[EdgeForColoured] = []
-	N: dict[ColouredVertex, list[EdgeForColoured]] = {}
+class ColouredGraph:
+	V: list[ColouredVertex]
+	E: list[EdgeForColoured]
+	N: dict[ColouredVertex, list[EdgeForColoured]]
 
-	def __init__(self, G: Graph=None):
-		for v in G.V:
+	def __init__(self, G: Graph = None):
+		self.V: list[ColouredVertex] = []
+		self.E: list[EdgeForColoured] = []
+		self.N: dict[ColouredVertex, list[EdgeForColoured]] = {}
+		for _ in G.V:
 			self.add_vertex()
 		for e in G.E:
 			v, u = e.ends
@@ -58,5 +61,5 @@ class ColouredGraph(Graph):
 		self.N[v].append(e)
 		self.N[u].append(e)
 
-	def count_neighbors_with_same_colour(self):
-		sum(e.weight for e in self.E)
+	def fitness(self):
+		sum(not e.cost for e in self.E)
