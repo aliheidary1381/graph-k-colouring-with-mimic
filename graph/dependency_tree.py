@@ -6,14 +6,13 @@ import random
 
 
 class DVertex(Vertex):
-	P: list[list[float]]  # self.P[c] is probability distribution function of self,  given that self's parent's colour is c
-	# self.P[c][x] = P(self.colour == x | parent.colour == c)
-	eP: list[float]  # ep[c] = empirical probability that self's colour is c
+	eP: list[float]  # ep[c] = P(self.colour == c)                                      empirical   probability
+	cP: list[list[float]]  # self.cP[c][x] = P(self.colour == x | parent.colour == c)   conditional probability (also emp.)
 
-	def __init__(self, k: int, label: int):
+	def __init__(self, label: int):
 		super().__init__(label)
-		self.eP: list[float] = [1/k for _ in range(k)]
-		self.P: list[list[float]] = [[1/k for _ in range(k)] for _ in range(k)]
+		self.eP: list[float] | None = None
+		self.cP: list[list[float]] | None = None
 
 
 class DEdge:
@@ -44,36 +43,38 @@ class DTree:  # dependency graph + tree structure
 		self.children[parent].append(e)
 		self.children[child] = []
 
-	def __init__(self, k: int, G: Graph = None):
-		self.root = DVertex(k, 0)  # TODO
+	def __init__(self, G: Graph, eP: callable, cP: callable):
+		self.root = DVertex(0)  # any vertex is admissible
+		self.root.eP = eP(self.root.id)
 		self.V: list[DVertex] = [self.root]
 		self.E: list[DEdge] = []
 		self.parent: dict[DVertex, DEdge | None] = {self.root: None}
 		self.children: dict[DVertex, list[DEdge]] = {self.root: []}
-		if G is None:
-			return
 		for i in range(1, len(G.V)):
-			self.V.append(DVertex(k, i))
+			self.V.append(DVertex(i))
 		seen = {v: False for v in self.V}
-		self.init_dfs(G, seen, self.root)
+		self.init_dfs(G, seen, cP, self.root)
 
-	def init_dfs(self, G: Graph, seen: dict[DVertex: bool], v: DVertex):
+	def init_dfs(self, G: Graph, seen: dict[DVertex: bool], cP: callable, v: DVertex):
 		seen[v] = True
 		for e in G.N[G.V[v.id]]:
 			u = e.opposite_end(G.V[v.id])  # in G
 			u = self.V[u.id]  # in self
 			if not seen[u]:
 				self.add_edge(v, u)
-				self.init_dfs(G, seen, u)
+				u.cP = cP(v.id, u.id)
+				self.init_dfs(G, seen, cP, u)
 
 	def sample(self, Gin: Graph) -> ColouredGraph:
 		Gout = ColouredGraph(Gin)
-		Gout.V[self.root.id].colour = random.choices([c for c in range(len(self.root.eP))], weights=self.root.eP)[0]
-		self.sample_dfs(Gout, self.root)
+		k = len(self.root.eP)
+		cp = [colour for colour in range(k)]
+		Gout.V[self.root.id].colour = random.choices(cp, weights=self.root.eP)[0]
+		self.sample_dfs(Gout, cp, self.root)
 		return Gout
 
-	def sample_dfs(self, Gout: ColouredGraph, v: DVertex):
+	def sample_dfs(self, Gout: ColouredGraph, cp: list[int], v: DVertex):
 		for e in self.children[v]:
 			u = e.opposite_end(v)
-			Gout.V[u.id].colour = random.choices([c for c in range(len(u.P[Gout.V[v.id].colour]))], weights=u.P[Gout.V[v.id].colour])[0]
-			self.sample_dfs(Gout, u)
+			Gout.V[u.id].colour = random.choices(cp, weights=u.cP[Gout.V[v.id].colour])[0]
+			self.sample_dfs(Gout, cp, u)

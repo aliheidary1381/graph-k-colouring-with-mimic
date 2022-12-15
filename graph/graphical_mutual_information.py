@@ -1,14 +1,13 @@
 # be năm ❤xodă❤
 # Created by Ali Heydari
 from graph.simple_graph import Vertex, Edge, Graph
-from graph.dependency_tree import DTree
 import fibheap
 
 
 class MIEdge(Edge):
 	weight: float  # Mutual Information
 
-	def __init__(self, v: Vertex, u: Vertex | None, w: float = 1):
+	def __init__(self, v: Vertex, u: Vertex | None, w: float):
 		super().__init__(v, u)
 		self.weight = w
 
@@ -47,7 +46,7 @@ class MIGraph:
 		self.N[v].append(e)
 		self.N[u].append(e)
 
-	def __init__(self, n: int):  # complete graph with n vertices
+	def __init__(self, n: int, I: callable):  # complete graph with n vertices
 		self.V: list[Vertex] = []
 		self.E: list[MIEdge] = []
 		self.N: dict[Vertex, list[MIEdge]] = {}
@@ -55,10 +54,11 @@ class MIGraph:
 			self.add_vertex()
 		for i in range(n):
 			v = self.V[i]
-			for u in self.V[:i]:
-				self.add_edge(MIEdge(v, u))
+			for j in range(i):
+				u = self.V[j]
+				self.add_edge(MIEdge(v, u, I(i, j)))
 
-	def MST(self, k: int) -> DTree:  # using Prim's algorithm
+	def MST(self) -> Graph:  # using Prim's algorithm
 		inf = float("inf")
 		T = Graph(len(self.V))
 		is_in_Q: dict[Vertex, bool] = {v: True for v in self.V}
@@ -80,4 +80,4 @@ class MIGraph:
 				u = e.opposite_end(v)
 				if is_in_Q[u] and e < Q_dict[u].key:
 					Q.decrease_key(Q_dict[u], MIEdge(v, u, e.weight))
-		return DTree(k, T)
+		return T

@@ -4,110 +4,91 @@ from graph import *
 
 
 class MIMIC:
-	k: int  # constant
-	body: Graph  # constant
-	gmi: MIGraph
-	model: DTree
-	current_generation: list[ColouredGraph]
-
-	def __init__(self, k: int, G: Graph):
-		self.iteration = 0
-		self.k = k
-		self.body = G
-		self.gmi = MIGraph(len(G.V))
-		for v in G.V:
-			c = len(G.N[v])
-			v = self.gmi.V[v.id]
-			for e in self.gmi.N[v]:
-				u = e.opposite_end(v)
-				e.weight = c + len(G.N[G.V[u.id]])
-		self.model = self.gmi.MST(k)
-		self.current_generation = self.produce_new_generation(1)
+	initial_population: int = 50
+	reproduction_rate: float = 1
+	death_rate: float = 0.5
+	k: int
+	G: Graph  # len(V) = n
+	_model: DTree
+	_current_generation: list[ColouredGraph]  # len = t
 
 	def run(self) -> ColouredGraph:
-		reproduction_rate = 1
-		death_rate = 0.5
-		while self.current_generation[0].fitness() != len(self.body.E):
-			self.iteration += 1
-			self.pick_best(death_rate)
-			self.update_model()
-			self.estimate_distribution()
-			self.current_generation += self.produce_new_generation(reproduction_rate)
-		return self.current_generation[0]
+		while self._current_generation[0].fitness() != len(self.G.E):
+			self.select_best()  # O(t lg t)
+			self.update_model()  # O(tn^2)
+			self.produce_new_generation()  # O(tn)
+		return self._current_generation[0]
 
-	def calculate_eP(self, v: DVertex):
-		v.eP = [0 for _ in range(self.k)]
-		for G in self.current_generation:
-			v.eP[G.V[v.id].colour] += 1
-		den = len(self.current_generation)
-		v.eP = [cnt / den for cnt in v.eP]
+	def produce_new_generation(self):
+		sampling_ratio = self.reproduction_rate
+		cnt = round(len(self._current_generation) * sampling_ratio)
+		self._current_generation += [self._model.sample(self.G) for _ in range(cnt)]
 
-	def calculate_P(self, parent: DVertex, child: DVertex):
-		child.P = [[0 for _ in range(self.k)] for _ in range(self.k)]
-		for G in self.current_generation:
-			child.P[G.V[parent.id].colour][G.V[child.id].colour] += 1
-		count_sum = [max(1, sum(child.P[colour])) for colour in range(self.k)]
-		child.P = [[child.P[i][j] / count_sum[i] for j in range(self.k)] for i in range(self.k)]
+	def select_best(self):
+		survival_rate = 1 - self.death_rate
+		cnt = round(len(self._current_generation) * survival_rate)
+		self._current_generation.sort(key=lambda G: G.fitness(), reverse=True)
+		self._current_generation = self._current_generation[:cnt]
 
-	def estimate_distribution(self):
-		for v in self.model.V:
-			if v == self.model.root:
-				self.calculate_eP(v)
-			else:
-				self.calculate_P(self.model.parent[v].opposite_end(v), v)
+	def update_model(self):
+		gmi = MIGraph(len(self.G.V), self.I)
+		T = gmi.MST()
+		self._model = DTree(T, self.eP, self.cP)
 
-	def generate_candidate_solution(self) -> ColouredGraph:
-		return self.model.sample(self.body)
+	def eP(self, vid: int) -> list[float]:
+		eP = [0 for _ in range(self.k)]
+		for G in self._current_generation:
+			eP[G.V[vid].colour] += 1
+		den = len(self._current_generation)
+		return [cnt / den for cnt in eP]
 
-	def produce_new_generation(self, sampling_ratio) -> list[ColouredGraph]:
-		if self.iteration == 0:
-			new_population = 10*len(self.body.V)
-		else:
-			old_generation = self.current_generation
-			new_population = len(old_generation)
-		new_generation = []
+	def cP(self, parent_id: int, child_id: int) -> list[list[float]]:
+		P = [[0 for _ in range(self.k)] for _ in range(self.k)]
+		for G in self._current_generation:
+			P[G.V[parent_id].colour][G.V[child_id].colour] += 1
+		count_sum = [max(1, sum(P[colour])) for colour in range(self.k)]
+		return [[P[i][j] / count_sum[i] for j in range(self.k)] for i in range(self.k)]
 
-		for i in range(new_population * sampling_ratio):
-			new_generation.append(self.generate_candidate_solution())
-		return new_generation
-
-	def evaluate_fitness(self):
-		self.current_generation.sort(key=lambda G: G.fitness(), reverse=True)
-
-	def pick_best(self, ratio: float):
-		self.evaluate_fitness()
-		self.current_generation = self.current_generation[:round(len(self.current_generation) * ratio)]
-
-	def calculate_mutual_information(self, e: MIEdge):
-		v, u = e.ends
-		vid, uid = v.id, u.id
+	def I(self, vid: int, uid: int) -> float:
 		Pvu = [[0 for _ in range(self.k)] for _ in range(self.k)]
 		Pv = [0 for _ in range(self.k)]
 		Pu = [0 for _ in range(self.k)]
-		for G in self.current_generation:
+		for G in self._current_generation:
 			Pvu[G.V[vid].colour][G.V[uid].colour] += 1
 			Pv[G.V[vid].colour] += 1
 			Pu[G.V[uid].colour] += 1
-		den = len(self.current_generation)
+		den = len(self._current_generation)
+		ans = 0
 		for cv in range(self.k):
 			for cu in range(self.k):
-				e.weight += Pvu[cv][cu]/den*math.log(max(1, Pvu[cv][cu])*den/max(1, Pv[cv]*Pu[cu]))
+				ans += Pvu[cv][cu] / den * math.log(max(1, Pvu[cv][cu]) * den / max(1, Pv[cv] * Pu[cu]))
+		return ans
 
-	def fill_gmi(self):
-		for e in self.gmi.E:
-			self.calculate_mutual_information(e)
+	def __init__(self, k: int, G: Graph):
+		self.k = k
+		self.G = G
 
-	def update_model(self):
-		self.fill_gmi()
-		self.model = self.gmi.MST(self.k)
+		def eP(_):
+			return [1 / k for _ in range(k)]
+
+		def cP(_, __):
+			return [[1 / k for _ in range(k)] for _ in range(k)]
+
+		def I(vid, uid):
+			return len(G.N[G.V[vid]]) + len(G.N[G.V[uid]])
+
+		gmi = MIGraph(len(G.V), I)
+		T = gmi.MST()
+		self._model = DTree(T, eP, cP)
+		self._current_generation = [self._model.sample(self.G) for _ in range(self.initial_population)]
 
 
-H = Graph(4)
-H.add_edge(Edge(H.V[0], H.V[1]))
-H.add_edge(Edge(H.V[1], H.V[2]))
-H.add_edge(Edge(H.V[2], H.V[3]))
-AI = MIMIC(2, H)
-CG = AI.run()
+def solve(k: int, G: Graph) -> ColouredGraph:
+	return MIMIC(k, G).run()
+
+
+solution = solve(3, Petersen)
+
 print("vertices' colours are:", end=' ')
-for x in CG.V:
+for x in solution.V:
 	print(x.colour, end=' ')
