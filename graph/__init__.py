@@ -5,6 +5,7 @@ from graph.graphical_mutual_information import *
 
 # exemplar
 Petersen = Graph(10)
+"""https://en.wikipedia.org/wiki/Petersen_graph"""
 Petersen.add_edge(Edge(Petersen.V[0], Petersen.V[1]))
 Petersen.add_edge(Edge(Petersen.V[1], Petersen.V[2]))
 Petersen.add_edge(Edge(Petersen.V[2], Petersen.V[3]))

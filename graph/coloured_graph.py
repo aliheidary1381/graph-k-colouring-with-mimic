@@ -61,5 +61,7 @@ class ColouredGraph:
 		self.N[v].append(e)
 		self.N[u].append(e)
 
-	def fitness(self):
-		return sum(not e.cost for e in self.E)
+
+def C(G: ColouredGraph) -> int:
+	"""cost function to minimize"""
+	return sum(e.cost for e in G.E)

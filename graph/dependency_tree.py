@@ -6,12 +6,14 @@ import random
 
 
 class DVertex(Vertex):
-	eP: list[float]  # ep[c] = P(self.colour == c)                                      empirical   probability
-	cP: list[list[float]]  # self.cP[c][x] = P(self.colour == x | parent.colour == c)   conditional probability (also emp.)
+	P: list[float]
+	"""ep[c] = P(self.colour = c)"""
+	cP: list[list[float]]
+	"""self.ecP[c][x] = P(self.colour = x | parent.colour = c)"""
 
 	def __init__(self, label: int):
 		super().__init__(label)
-		self.eP: list[float] | None = None
+		self.P: list[float] | None = None
 		self.cP: list[list[float]] | None = None
 
 
@@ -29,7 +31,7 @@ class DEdge:
 			return u1
 
 
-class DTree:  # dependency graph + tree structure
+class DependencyTree:
 	root: DVertex
 	V: list[DVertex]
 	E: list[DEdge]
@@ -43,9 +45,9 @@ class DTree:  # dependency graph + tree structure
 		self.children[parent].append(e)
 		self.children[child] = []
 
-	def __init__(self, G: Graph, eP: callable, cP: callable):
+	def __init__(self, G: Graph, P: callable, cP: callable):
 		self.root = DVertex(0)  # any vertex is admissible
-		self.root.eP = eP(self.root.id)
+		self.root.P = P(self.root.id)
 		self.V: list[DVertex] = [self.root]
 		self.E: list[DEdge] = []
 		self.parent: dict[DVertex, DEdge | None] = {self.root: None}
@@ -67,9 +69,9 @@ class DTree:  # dependency graph + tree structure
 
 	def sample(self, Gin: Graph) -> ColouredGraph:
 		Gout = ColouredGraph(Gin)
-		k = len(self.root.eP)
+		k = len(self.root.P)
 		cp = [colour for colour in range(k)]
-		Gout.V[self.root.id].colour = random.choices(cp, weights=self.root.eP)[0]
+		Gout.V[self.root.id].colour = random.choices(cp, weights=self.root.P)[0]
 		self.sample_dfs(Gout, cp, self.root)
 		return Gout
 

@@ -4,60 +4,93 @@ from graph import *
 
 
 class MIMIC:
+	"""
+	mutual information maximizing input clustering
+	"""
 	initial_population: int = 50
-	reproduction_rate: float = 1
 	death_rate: float = 0.5
+	birth_rate: float = 1
 	k: int
 	G: Graph  # len(V) = n
-	_model: DTree
-	_current_generation: list[ColouredGraph]  # len = t
+	Pt: list[ColouredGraph]  # len = N
+	"""population at current generation t"""
+	t: int = 0  # generation #
 
 	def run(self) -> ColouredGraph:
-		while self._current_generation[0].fitness() != len(self.G.E):
-			self.select_best()  # O(t lg t)
-			self.update_model()  # O(tn^2)
-			self.produce_new_generation()  # O(tn)
-		return self._current_generation[0]
+		while C(self.Pt[0]) > 0:
+			self.Pt += self.beta_mu(self.alpha_MIMIC(self.S(self.Pt)))
+			self.t += 1
+		return self.Pt[0]
 
-	def produce_new_generation(self):
-		sampling_ratio = self.reproduction_rate
-		cnt = round(len(self._current_generation) * sampling_ratio)
-		self._current_generation += [self._model.sample(self.G) for _ in range(cnt)]
+	def beta_mu(self, model: DependencyTree) -> list[ColouredGraph]:
+		"""
+		β_μ = sampling operator ∈ O(Nn)
 
-	def select_best(self):
-		survival_rate = 1 - self.death_rate
-		cnt = round(len(self._current_generation) * survival_rate)
-		self._current_generation.sort(key=lambda G: G.fitness(), reverse=True)
-		self._current_generation = self._current_generation[:cnt]
+		Generate more samples from the distribution p^{θ_t}.
+		"""
+		sampling_ratio = self.birth_rate
+		cnt = round(len(self.Pt) * sampling_ratio)
+		# model ≈ p^{θ_t}
+		return [model.sample(self.G) for _ in range(cnt)]
 
-	def update_model(self):
-		gmi = MIGraph(len(self.G.V), self.I)
+	def S(self, population: list[ColouredGraph]) -> list[ColouredGraph]:
+		"""
+		S = selection operator ∈ O(N lg N)
+
+		Set θ_{t + 1} equal to the Nth percentile of the data.
+		Retain only the points less than θ_{t + 1}.
+		"""
+		survival_rate = 1 - self.death_rate  # survival_rate ∝ N
+		cnt = round(len(population) * survival_rate)  # Nth percentile
+		population.sort(key=C)
+		# θ_{t + 1} = population[cnt]
+		return population[:cnt]
+
+	def alpha_MIMIC(self, sample: list[ColouredGraph]) -> DependencyTree:
+		"""
+		α_MIMIC = model-building operator ∈ O(N n^2)
+
+		Update the parameters of density estimator of p^{θ_t} from a sample.
+		"""
+		self.Pt = sample
+		gmi = MutualInformationGraph(len(self.G.V), self.I)
 		T = gmi.MST()
-		self._model = DTree(T, self.eP, self.cP)
+		return DependencyTree(T, self.eP, self.ecP)  # ≈ p^{θ_t}
 
 	def eP(self, vid: int) -> list[float]:
+		"""
+		empirical (unconditional) probability
+		"""
 		eP = [0 for _ in range(self.k)]
-		for G in self._current_generation:
+		for G in self.Pt:
 			eP[G.V[vid].colour] += 1
-		den = len(self._current_generation)
-		return [cnt / den for cnt in eP]
+		t = len(self.Pt)
+		return [cnt / t for cnt in eP]
 
-	def cP(self, parent_id: int, child_id: int) -> list[list[float]]:
+	def ecP(self, parent_id: int, child_id: int) -> list[list[float]]:
+		"""
+		empirical conditional probability
+		"""
 		P = [[0 for _ in range(self.k)] for _ in range(self.k)]
-		for G in self._current_generation:
+		for G in self.Pt:
 			P[G.V[parent_id].colour][G.V[child_id].colour] += 1
 		count_sum = [max(1, sum(P[colour])) for colour in range(self.k)]
 		return [[P[i][j] / count_sum[i] for j in range(self.k)] for i in range(self.k)]
 
 	def I(self, vid: int, uid: int) -> float:
+		"""
+		mutual information
+
+		https://en.wikipedia.org/wiki/Mutual_information#In_terms_of_PMFs_for_discrete_distributions
+		"""
 		Pvu = [[0 for _ in range(self.k)] for _ in range(self.k)]
 		Pv = [0 for _ in range(self.k)]
 		Pu = [0 for _ in range(self.k)]
-		for G in self._current_generation:
+		for G in self.Pt:
 			Pvu[G.V[vid].colour][G.V[uid].colour] += 1
 			Pv[G.V[vid].colour] += 1
 			Pu[G.V[uid].colour] += 1
-		den = len(self._current_generation)
+		den = len(self.Pt)
 		ans = 0
 		for cv in range(self.k):
 			for cu in range(self.k):
@@ -68,19 +101,20 @@ class MIMIC:
 		self.k = k
 		self.G = G
 
-		def eP(_):
+		def uP(_):
 			return [1 / k for _ in range(k)]
 
-		def cP(_, __):
+		def ucP(_, __):
 			return [[1 / k for _ in range(k)] for _ in range(k)]
 
 		def I(vid, uid):
 			return len(G.N[G.V[vid]]) + len(G.N[G.V[uid]])
 
-		gmi = MIGraph(len(G.V), I)
+		gmi = MutualInformationGraph(len(G.V), I)
 		T = gmi.MST()
-		self._model = DTree(T, eP, cP)
-		self._current_generation = [self._model.sample(self.G) for _ in range(self.initial_population)]
+		model = DependencyTree(T, uP, ucP)
+		self.Pt = [model.sample(self.G) for _ in range(self.initial_population)]
+		self.t = 0
 
 
 def solve(k: int, G: Graph) -> ColouredGraph:

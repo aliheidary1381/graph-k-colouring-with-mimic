@@ -1,11 +1,12 @@
 # be năm ❤xodă❤
 # Created by Ali Heydari
 from graph.simple_graph import Vertex, Edge, Graph
-import fibheap
+import fibheap  # https://en.wikipedia.org/wiki/Fibonacci_heap
 
 
 class MIEdge(Edge):
-	weight: float  # Mutual Information
+	weight: float
+	"""mutual information"""
 
 	def __init__(self, v: Vertex, u: Vertex | None, w: float):
 		super().__init__(v, u)
@@ -27,7 +28,7 @@ class MIEdge(Edge):
 		return self.weight <= other.weight
 
 
-class MIGraph:
+class MutualInformationGraph:
 	V: list[Vertex]
 	E: list[MIEdge]
 	N: dict[Vertex, list[MIEdge]]
@@ -46,7 +47,7 @@ class MIGraph:
 		self.N[v].append(e)
 		self.N[u].append(e)
 
-	def __init__(self, n: int, I: callable):  # complete graph with n vertices
+	def __init__(self, n: int, I: callable):
 		self.V: list[Vertex] = []
 		self.E: list[MIEdge] = []
 		self.N: dict[Vertex, list[MIEdge]] = {}
@@ -58,7 +59,8 @@ class MIGraph:
 				u = self.V[j]
 				self.add_edge(MIEdge(v, u, I(i, j)))
 
-	def MST(self) -> Graph:  # using Prim's algorithm
+	def MST(self) -> Graph:
+		"""https://en.wikipedia.org/wiki/Prim%27s_algorithm"""
 		inf = float("inf")
 		T = Graph(len(self.V))
 		is_in_Q: dict[Vertex, bool] = {v: True for v in self.V}
