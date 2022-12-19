@@ -3,9 +3,9 @@
 This project is optimized for maximum readability and not performance.
 This is reinventing the wheel for educational purposes.
 
-There are comments, documentations & links to the original article and related wikipedia pages throughout the code.
+There are comments & docstrings throughout the code.
 
-No external libraries are used, except [fibonacci heap](https://pypi.org/project/fibheap/) for finding MST.
+No external libraries are used, except the [Fibonacci Heap](https://pypi.org/project/fibheap/) for finding MST.
 
 The following is an explanation of the algorithm. you can read it, jump straight into the code or read these
 
@@ -13,7 +13,7 @@ The following is an explanation of the algorithm. you can read it, jump straight
 
 [useful link](https://www.swyx.io/unsupervised-learning-randomized-optimization-4c1i)
 
-[wikipedia](https://en.wikipedia.org/wiki/Estimation_of_distribution_algorithm#Mutual_information_maximizing_input_clustering_(MIMIC))
+[Wikipedia](https://en.wikipedia.org/wiki/Estimation_of_distribution_algorithm#Mutual_information_maximizing_input_clustering_(MIMIC))
 
 <details>
   <summary>Table of Contents</summary>
@@ -42,7 +42,7 @@ The following is an explanation of the algorithm. you can read it, jump straight
 
 Generally, given some cost function `C`, we want to find `x` with minimal `C(x)`.
 
-E.g. In [k-Colouring Problem](https://en.wikipedia.org/wiki/Graph_coloring#Vertex_coloring),
+E.g. For the [k-Colouring Problem](https://en.wikipedia.org/wiki/Graph_coloring#Vertex_coloring),
 I have defined the cost function to be the number of bad edges,
 i.e. edges connecting same-colour vertices.
 
@@ -57,30 +57,30 @@ We then improve our guessing iteratively, learning about the distribution of `C`
 At each iteration:
 1. We use this `model` to generate more samples and grow our `population` (using `β_μ`).
 2. Candidate solutions with high (bad) `C` values are discarded and the fittest ones survive (using `S`).
-3. With this new `population` our `model` could be updated to better estimate the distribution (using `α_MIMIC`).
+3. With this new `population`, our `model` could be updated to better estimate the distribution (using `α_MIMIC`).
 
 This idea of guessing intelligently improves performance compared to [Simulated Annealing](https://en.wikipedia.org/wiki/Simulated_annealing)
-and other alternatives witch blindly walk on `C`.
+and other alternatives which blindly walk on `C`.
 
 Each [EDA](https://en.wikipedia.org/wiki/Estimation_of_distribution_algorithm) has a unique way of modeling
 with its own pros and cons.
 
 ### MIMIC Modeling
 
-Learning the structure of the function space helps us to better estimate, sample and model `C`.
+Learning the structure of the function space helps us to better estimate, sample, and model `C`.
 
 For example, in a 2-colouring problem, imagine a graph with only two neighbouring vertices.
-Possible valid solutions are 0-1 and 1-0, meaning that each vertex has equal possibility to be coloured 0 and 1.
-A modeling witch doesn't learn the relationships would sample 0-0 and 0-1 with equal possibilities. 
+Possible valid solutions are 0-1 and 1-0, meaning that each vertex has an equal possibility to be coloured 0 and 1.
+A modeling strategy without learning the relationships would sample 0-0 and 0-1 with equal possibilities. 
 
-We want a modeling to learn about the structure of `x`'s variables (`x = [x_0, x_1]`),
+We want a good modeling strategy that learns about the structure of `x`'s variables (`x = [x_0, x_1]`),
 e.g. knowing `x_0 = 0`, the possibility of sampling `x_1 = 0` should decrease drastically.
 
 helpful read: [no free lunch theorem in search and optimization](https://en.wikipedia.org/wiki/No_free_lunch_in_search_and_optimization) -
 an explanation of why optimizations can only improve on others if they build in certain assumptions about structure
 
 But learning too much structure would cost us too much time,
-i.e. we will reach the goal in less iterations but each iteration would cost more time.
+i.e. we will reach the goal in fewer iterations but each iteration would cost more time.
 It's all about balancing the two.
 
 Learning the structure perfectly would generate the [joint probability distribution](https://en.wikipedia.org/wiki/Joint_probability_distribution)
@@ -88,9 +88,9 @@ like this:
 ```text
 p(x) = p(x_0)*p(x_1 | x_0)*p(x_2 | x_1, x_0)*p(x_3 | x_2, x_1, x_0) ...
 ```
-Witch means: probability of `x1` knowing that `x_0` is `whatever it is`,
-probability of `x2` knowing that `x_1, x_0` are `whatever they are`,
-probability of `x3` knowing that `x_2, x_1, x_0` are `whatever they are`
+Which means: the probability of `x1` knowing that `x_0` is `whatever it is`,
+the probability of `x2` knowing that `x_1, x_0` are `whatever they are`,
+the probability of `x3` knowing that `x_2, x_1, x_0` are `whatever they are`,
 and so on and so forth.
 
 But this increases our computational complexity exponentially as `len(x)` grows
@@ -103,7 +103,7 @@ i.e. `p(x_2 | x_1)` instead of `p(x_2 | x_1, x_0)` and `p(x_3 | x_2)` instead of
 ```text
 p(x) = p(x_0)*p(x_1 | x_0)*p(x_2 | x_1)*p(x_3 | x_2) ...
 ```
-This decreases accuracy of our estimation. the amount of decrease is rigorously measured by
+This decreases the accuracy of our estimation. the amount of decrease is rigorously measured by
 [Kullback–Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence).
 
 The divergence between the perfect joint probability distribution and MIMIC's estimation is inevitable,
@@ -115,12 +115,12 @@ The permutation is the limited structure that our algorithm learns.
 
 Some variables have more impact on some than on others.
 
-In k-Colouring Problem, neighbouring vertices are intuitively more impactful on each other.
+In the k-Colouring Problem, neighbouring vertices are intuitively more impactful on each other.
 If one is blue, the other is definitely not blue.
 [Mutually independent variables](https://en.wikipedia.org/wiki/Independence_(probability_theory))
 have zero impact on each other.
 
-The idea is to compute `p(x_i | x_j)`s in an order witch `x_j` has most impact on `x_i`.
+The idea is to compute `p(x_i | x_j)`s in an order in which `x_j` has the most impact on `x_i`.
 
 so, instead of computing
 ```text
@@ -151,7 +151,7 @@ This would be a [star](https://en.wikipedia.org/wiki/Star_(graph_theory)) in a D
 
 Dependency Trees are [Bayesian Networks](https://en.wikipedia.org/wiki/Bayesian_network)
 or [Dependency Graphs](https://en.wikipedia.org/wiki/Dependency_graph)
-where every node has exactly one parent (except the `root`, witch has `None`).
+where every node has exactly one parent (except the `root`, which has `None`).
 
 This improves our estimation further without any loss in performance.
 
@@ -181,13 +181,13 @@ This can be easily computed as follows:
 
 Generating samples from our `model` (Dependency Tree) is as you would think.
 
-We choose a colour for `root` based on its [empirical probability](https://en.wikipedia.org/wiki/Empirical_probability) `p(root)`.
+We choose a colour for the `root` based on its [empirical probability](https://en.wikipedia.org/wiki/Empirical_probability) `p(root)`.
 
 For every other node `v`, we choose a colour based on its empirical [conditional probability](https://en.wikipedia.org/wiki/Conditional_probability) `p(v | parent(v))`.
 
 note that `parent(v)`'s colour should be chosen before `v` itself.
 This constraint is satisfied with
 [BFS](https://en.wikipedia.org/wiki/Breadth-first_search),
-[DFS](https://en.wikipedia.org/wiki/Depth-first_search)
+[DFS](https://en.wikipedia.org/wiki/Depth-first_search),
 and a lot of other [tree traversal algorithms](https://en.wikipedia.org/wiki/Tree_traversal).
 I chose DFS for the simplicity of implementation.
